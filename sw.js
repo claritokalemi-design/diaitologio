@@ -10,11 +10,14 @@ async function askTok(){
   }
   return null;
 }
+const CACHE = "blobs-v1";
 async function blob(id){
+  const c = await caches.open(CACHE), key = new Request(self.location.origin + "/_blob/" + id);
+  const hit = await c.match(key); if(hit) return hit;
   for(let i = 0; i < 2; i++){
     const t = tok || await askTok(); if(!t) break;
     const r = await fetch(`${SUPA}/storage/v1/object/authenticated/assets/${id}`, { headers: { Authorization: "Bearer " + t, apikey: KEY } });
-    if(r.ok) return new Response(r.body, { status: 200, headers: { "Content-Type": r.headers.get("Content-Type") || "application/octet-stream", "Cache-Control": "private, max-age=86400" } });
+    if(r.ok){ const res = new Response(await r.blob(), { status: 200, headers: { "Content-Type": r.headers.get("Content-Type") || "application/octet-stream" } }); try{ await c.put(key, res.clone()); }catch(_){} return res; }
     tok = null;
   }
   return new Response("", { status: 404 });
