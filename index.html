@@ -1378,7 +1378,7 @@ async function downloadPDF(list, btn){
     const root = $("#pdfroot");
     for(let k=0;k<list.length;k++){
       root.innerHTML = sheetHTML(list[k]);
-      await Promise.all([...root.querySelectorAll("img")].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
+      await Promise.all([...root.querySelectorAll("img")].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))); await inlineImgs(root);
       const canvas = await html2canvas(root.firstElementChild, {scale:2, backgroundColor:"#ffffff", useCORS:true});
       const pageH = Math.floor(canvas.width * 297 / 210);
       for(let y=0, first=true; y < canvas.height; y += pageH, first=false){
@@ -3461,6 +3461,15 @@ function fitShop(el, mk){
   }
 }
 function waitImgs(root){ return Promise.all([...root.querySelectorAll("img")].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))); }
+/* before html2canvas: embed stored photos as data, so the PDF never loses them (the PDF renderer cannot always reach /_blob/) */
+const inlCache = new Map();
+async function inlineImgs(root){
+  const toData = src => { if(!inlCache.has(src)) inlCache.set(src, fetch(src).then(r => r.ok ? r.blob() : Promise.reject(r.status)).then(b => new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(b); })).catch(e => { inlCache.delete(src); throw e; })); return inlCache.get(src); };
+  await Promise.all([...root.querySelectorAll("img")].map(async i => {
+    const src = i.getAttribute("src") || ""; if(!src || src.startsWith("data:") || src.startsWith("blob:")) return;
+    try{ const d = await toData(src); await new Promise(r => { i.onload = i.onerror = r; i.src = d; }); }catch(_){}
+  }));
+}
 
 function viewBuilt(p, c){
   viewTask++; viewPlanRef = { p, c };
@@ -3508,7 +3517,7 @@ async function exportBuilt(p, c, btn, fname){
   const root = $("#pdfroot");
   try{
     await ensureLibs(); await document.fonts.ready;
-    root.innerHTML = ""; const els = mountPages(root, p, c); await waitImgs(root);
+    root.innerHTML = ""; const els = mountPages(root, p, c); await waitImgs(root); await inlineImgs(root);
     const { jsPDF } = window.jspdf; const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
     for(let i = 0; i < els.length; i++){
       els[i].style.boxShadow = "none"; els[i].style.borderRadius = "0";
