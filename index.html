@@ -3478,6 +3478,31 @@ function viewBuilt(p, c){
   });
   tmp.remove();
 }
+/* diary pages: fillable PDF fields over the printed lines, so clients can fill them in a PDF app */
+function addDiaryFields(pdf, el, pi){
+  const J = window.jspdf; if(!J?.AcroFormTextField || !el.querySelector(".fb, .exl")) return;
+  const P = el.getBoundingClientRect(), k = 297 / P.width; let n = 0;
+  const mm = (l, t, r, b) => [ (l - P.left) * k, (t - P.top) * k, Math.max(2, (r - l) * k), Math.max(2, (b - t) * k) ];
+  const text = (rc, fs = 8, multi = false) => { if(!rc) return; const f = new J.AcroFormTextField(); f.fieldName = `p${pi + 1}_t${++n}`; f.Rect = rc; f.fontSize = fs; f.multiline = multi; f.value = ""; f.color = "#2B2323"; try{ pdf.addField(f); }catch(_){} };
+  const check = node => { const r = node.getBoundingClientRect(); const f = new J.AcroFormCheckBox(); f.fieldName = `p${pi + 1}_c${++n}`; f.Rect = mm(r.left - 1, r.top - 1, r.right + 1, r.bottom + 1); f.appearanceState = "Off"; f.color = "#E3262B"; try{ pdf.addField(f); }catch(_){} };
+  const rightOf = (row, after, pad = 3) => { const R = row.getBoundingClientRect(), a = after ? after.getBoundingClientRect() : null; return mm((a ? a.right : R.left) + pad, R.top, R.right, R.bottom); };
+  el.querySelectorAll(".dcard .chd > i").forEach(check);
+  el.querySelectorAll(".fb").forEach(fb => {
+    fb.querySelectorAll(".fcs .fc").forEach(check);
+    const s = fb.querySelector(".fbs"); if(s){ const R = s.getBoundingClientRect(), lab = s.querySelector("span").getBoundingClientRect(); text(mm(lab.right + 3, R.top + R.height * .5, R.right, R.bottom + 2), 7); }
+    const o = fb.querySelector(".fbo"), l = fb.querySelector(".fbl");
+    if(o){ const R = o.getBoundingClientRect(), hint = (o.querySelector("i") || o.querySelector("span")).getBoundingClientRect(), L = l ? l.getBoundingClientRect() : R;
+      text(mm(hint.right + 3, R.top, R.right, R.bottom)); if(l) text(mm(R.left, R.bottom, R.right, Math.max(L.bottom, R.bottom + 12)), 8, true); }
+  });
+  el.querySelectorAll(".exl tbody tr").forEach(tr => {
+    if(getComputedStyle(tr).display === "none") return;
+    const [a, d] = tr.children, num = a.querySelector(".exn");
+    text(rightOf(a, num), 9); text(rightOf(d, null, 2), 9);
+    tr.querySelectorAll(".sc:not(.fsc) i, .fsc i, .emo i").forEach(check);
+    const ln = tr.querySelector(".emo .ln"); if(ln){ const r = ln.getBoundingClientRect(); text(mm(r.left, r.top - 9, r.right + 30, r.bottom + 1), 7); }
+  });
+  el.querySelectorAll(".exl .exf .ln").forEach(ln => { const r = ln.getBoundingClientRect(); if(r.width) text(mm(r.left, r.top - 8, r.right, r.bottom + 1), 9); });
+}
 async function exportBuilt(p, c, btn, fname){
   const label = btn.textContent; btn.disabled = true; btn.textContent = "Ετοιμάζεται το PDF…";
   const root = $("#pdfroot");
@@ -3490,6 +3515,7 @@ async function exportBuilt(p, c, btn, fname){
       const cv = await html2canvas(els[i], { scale: 2, backgroundColor: "#ffffff", useCORS: true });
       if(i) pdf.addPage("a4", "landscape");
       pdf.addImage(cv.toDataURL("image/jpeg", .9), "JPEG", 0, 0, 297, 210);
+      try{ addDiaryFields(pdf, els[i], i); }catch(_){}
     }
     await downloads.save({ filename: fname || `Πλάνο διατροφής - ${c?.name || "πελάτης"} - ${weekLabel(p.start)}.pdf`, data: pdf.output("blob") });
   }catch(err){ if(!(err && err.code === "cancelled")){ const m = "Δεν ήταν δυνατή η δημιουργία του PDF. Δοκίμασε ξανά."; setCmsg(m); if(!$("#vTpl").hidden) $("#tmsg").textContent = m; } }
