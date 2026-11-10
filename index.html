@@ -957,9 +957,21 @@ ol.st li::before{counter-increment:s;content:counter(s);width:22px;height:22px;b
   const NEEDPW = /type=(invite|recovery)/.test(location.hash);
   const sb = supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true } });
   window.__sb = sb;
-  if("serviceWorker" in navigator){
-    navigator.serviceWorker.register("sw.js").then(() => { if(!navigator.serviceWorker.controller && !sessionStorage.getItem("swr")){ try{ sessionStorage.setItem("swr", "1"); }catch(_){} navigator.serviceWorker.ready.then(() => location.reload()); } });
-  }
+  /* photos: resolved in the page with the signed-in session (no service worker) */
+  if("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+  const blobP = new Map(), objUrl = new Map();
+  const getBlob = id => { if(!blobP.has(id)) blobP.set(id, (async () => { const { data, error } = await sb.storage.from(CFG.bucket).download(id); if(error || !data) throw error || new Error("nf"); return data; })().catch(e => { blobP.delete(id); throw e; })); return blobP.get(id); };
+  const BID = /(?:^|\/)_blob\/([0-9a-f]{32})/;
+  const ofetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => { const u = typeof input === "string" ? input : (input && input.url) || ""; const m = BID.exec(u);
+    if(m && (u.startsWith("/_blob/") || u.startsWith(location.origin + "/_blob/"))){ try{ await userReady; const b = await getBlob(m[1]); return new Response(b, { status: 200, headers: { "Content-Type": b.type || "application/octet-stream" } }); }catch(_){ return new Response("", { status: 404 }); } }
+    return ofetch(input, init); };
+  const fix = img => { const src = img.getAttribute("src") || "", m = BID.exec(src); if(!m || !(src.startsWith("/_blob/") || src.startsWith(location.origin + "/_blob/"))) return;
+    const id = m[1]; if(objUrl.has(id)){ img.src = objUrl.get(id); return; }
+    img.removeAttribute("src"); img.dataset.blob = id;
+    userReady.then(() => getBlob(id)).then(b => { if(!objUrl.has(id)) objUrl.set(id, URL.createObjectURL(b)); if(img.dataset.blob === id) img.src = objUrl.get(id); }).catch(() => {}); };
+  new MutationObserver(ms => { for(const m of ms){ if(m.type === "attributes"){ if(m.target.tagName === "IMG") fix(m.target); continue; } for(const n of m.addedNodes){ if(n.nodeType !== 1) continue; if(n.tagName === "IMG") fix(n); else n.querySelectorAll?.("img").forEach(fix); } } })
+    .observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
   /* ---- login gate ---- */
   const css = `#lg{position:fixed;inset:0;z-index:9999;background:#fbf6f4;display:grid;place-items:center;font:15px/1.4 system-ui,sans-serif}
   #lg form{background:#fff;padding:28px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.08);width:min(360px,92vw);display:grid;gap:12px}
@@ -983,9 +995,6 @@ ol.st li::before{counter-increment:s;content:counter(s);width:22px;height:22px;b
     d.querySelector("[data-reset]").addEventListener("click", async () => { if(!f.e.value.trim()){ m.textContent = "Γράψε πρώτα το email σου."; return; }
       await sb.auth.resetPasswordForEmail(f.e.value.trim(), { redirectTo: location.origin + location.pathname }); m.textContent = "Σου στείλαμε email για νέο κωδικό."; });
   }
-  const postTok = t => navigator.serviceWorker?.controller?.postMessage({ tok: t || null });
-  navigator.serviceWorker?.addEventListener("message", e => { if(e.data === "tok?" && e.ports[0]) sb.auth.getSession().then(({ data }) => e.ports[0].postMessage(data.session?.access_token || null)); });
-  sb.auth.onAuthStateChange((ev, ses) => postTok(ses?.access_token));
   function setPw(user){
     const d = document.createElement("div"); d.id = "lg";
     d.innerHTML = `<form><h1>Διαιτολογικό γραφείο</h1><div style="font-size:13px;color:#666">Όρισε τον κωδικό σου για ${user.email || ""}</div>
@@ -3470,8 +3479,8 @@ const inlCache = new Map();
 async function inlineImgs(root){
   const toData = src => { if(!inlCache.has(src)) inlCache.set(src, fetch(src).then(r => r.ok ? r.blob() : Promise.reject(r.status)).then(b => new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(b); })).catch(e => { inlCache.delete(src); throw e; })); return inlCache.get(src); };
   await Promise.all([...root.querySelectorAll("img")].map(async i => {
-    const src = i.getAttribute("src") || ""; if(!src || src.startsWith("data:") || src.startsWith("blob:")) return;
-    try{ const d = await toData(src); await new Promise(r => { i.onload = i.onerror = r; i.src = d; }); }catch(_){}
+    const src = i.getAttribute("src") || (i.dataset.blob ? "/_blob/" + i.dataset.blob : ""); if(!src || src.startsWith("data:") || src.startsWith("blob:")) return;
+    try{ const d = await toData(src); delete i.dataset.blob; await new Promise(r => { i.onload = i.onerror = r; i.src = d; }); }catch(_){}
   }));
 }
 
