@@ -3301,7 +3301,7 @@ function builtPages(p, c){
         const r = its.map(it => it.r && recOf(it.r)).find(Boolean);
         if(r) return `<div class="oc"><img alt="" src="${esc(r.photo)}"><span>${esc(mealTitle(its, title))}${mpt}</span></div>`;
         const smp = mphOf(day, m); if(smp?.photo) return `<div class="oc"><img alt="" src="${esc(smp.photo)}"><span>${esc(smp.name)}${mpt}</span></div>`;
-        const smn = mphOf(day, m)?.name; return `<div class="oc nr"><div class="oh">${ic(mealIc(m))}<b>${esc(m)}</b></div><span>${mpt}${smn ? `<b class="smn">${esc(smn)}</b>` : ""}<ul>${its.map(it => { const t = title(it).trim(); return t ? `<li>${esc(t)}${it.dessert ? ` <i class="ox ds">${ic("dessert")}</i>` : ""}${it.f && isDress(it.f) ? ` <i class="ox dr">${ic("drop")}</i>` : ""}</li>` : ""; }).join("")}</ul></span></div>`;
+        const smn = mphOf(day, m)?.name; return `<div class="oc nr"><div class="oh">${ic(mealIc(m))}<b>${esc(m)}</b></div><span>${mpt}${smn ? `<b class="smn">${esc(smn)}</b>` : ""}${smn ? "" : `<ul>${its.map(it => { const t = title(it).trim(); return t ? `<li>${esc(t)}${it.dessert ? ` <i class="ox ds">${ic("dessert")}</i>` : ""}${it.f && isDress(it.f) ? ` <i class="ox dr">${ic("drop")}</i>` : ""}</li>` : ""; }).join("")}</ul>`}</span></div>`;
       }).join("")}`).join("")}</div>`);
   // days
   p.days.forEach((day, d) => {
