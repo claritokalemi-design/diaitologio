@@ -3524,7 +3524,7 @@ async function exportBuilt(p, c, btn, fname){
       const cv = await html2canvas(els[i], { scale: 2, backgroundColor: "#ffffff", useCORS: true });
       if(i) pdf.addPage("a4", "landscape");
       pdf.addImage(cv.toDataURL("image/jpeg", .9), "JPEG", 0, 0, 297, 210);
-      try{ addDiaryFields(pdf, els[i], i); }catch(_){}
+      /* fillable fields disabled: produced unreadable PDFs */
     }
     await downloads.save({ filename: fname || `Πλάνο διατροφής - ${c?.name || "πελάτης"} - ${weekLabel(p.start)}.pdf`, data: pdf.output("blob") });
   }catch(err){ if(!(err && err.code === "cancelled")){ const m = "Δεν ήταν δυνατή η δημιουργία του PDF. Δοκίμασε ξανά."; setCmsg(m); if(!$("#vTpl").hidden) $("#tmsg").textContent = m; } }
