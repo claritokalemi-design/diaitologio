@@ -3316,7 +3316,7 @@ function builtPages(p, c){
           if(it.f) return `<li><b>${esc(foodQ(it))}</b><span>${esc(fname(it))}${cMark(it)}${it.dessert ? DSR() : ""}${noteH(it, "alts")}${(it.alts || []).length ? `<small class="alts">ή ${it.alts.map(a => esc(altTxt(a))).join(" · ")}</small>` : ""}</span></li>`;
           const r = it.r && recOf(it.r);
           if(!r) return `<li class="free"><span>${esc(it.t || "")}${it.dessert ? DSR() : ""}</span></li>`;
-          return (it.dessert ? `<li class="free dsh"><span>${DSR()} ${esc(r.title)}</span></li>` : "") + (r.ings || []).map(i => `<li class="ri"><b>${QUAL ? "" : esc(scaleQ(i.q, it.x || 1))}</b><span>${esc(i.name)}</span></li>`).join("") + `<li class="free rnote"><span>Τα υλικά της συνταγής «${esc(r.title)}» είναι στο βιβλίο συνταγών (συνταγή ${rno(r.id)}).</span></li>` + ((it.note || "").trim() ? `<li class="free"><span>✎ ${esc(it.note.trim())}</span></li>` : "");
+          return (it.dessert ? `<li class="free dsh"><span>${DSR()} ${esc(r.title)}</span></li>` : "") + (r.ings || []).map(i => `<li class="ri"><b>${QUAL ? "" : esc(scaleQ(i.q, it.x || 1))}</b><span>${esc(i.name)}</span></li>`).join("") + `<li class="free rnote" data-rid="${esc(r.id)}"><span>Τα υλικά της συνταγής «${esc(r.title)}» είναι στο βιβλίο συνταγών (συνταγή ${rno(r.id)}).</span></li>` + ((it.note || "").trim() ? `<li class="free"><span>✎ ${esc(it.note.trim())}</span></li>` : "");
         }).join("");
         const tm = recs.length === 1 && r0.min ? `⏱ ${r0.min} λεπτά · ${esc(r0.diff || "")}` : "";
         const port = its.length === 1 && its[0].r && (its[0].x || 1) !== 1 ? ` · ×${fmtN(its[0].x)} μερίδα` : "";
@@ -3334,7 +3334,7 @@ function builtPages(p, c){
     const used = []; p.days.forEach((day, d) => (p.meals || MEALS).forEach(m => { if((day.items?.[m] || []).some(it => it.r === r.id)) used.push(DAYN[d].slice(0,3)); }));
     const notes = [], steps = [];
     (r.steps || []).forEach(s => { const mm = s.match(/^\d+\.\s*(.*)$/); mm ? steps.push(mm[1]) : notes.push(s); });
-    return `<div class="rb"><img alt="" src="${esc(r.photo)}"><div><div class="rt2"><b>${i + 1}.</b> ${esc(r.title)}</div><div class="ru">${r.min ? `⏱ ${r.min}′ · ${esc(r.diff || "")} · ` : ""}${[...new Set(used)].join(", ")}</div></div>
+    return `<div class="rb" data-rid="${esc(r.id)}"><img alt="" src="${esc(r.photo)}"><div><div class="rt2"><b>${i + 1}.</b> ${esc(r.title)}</div><div class="ru">${r.min ? `⏱ ${r.min}′ · ${esc(r.diff || "")} · ` : ""}${[...new Set(used)].join(", ")}</div></div>
       ${(r.ings || []).length ? `<div class="rig"><b>Υλικά${(r.servings || 1) > 1 ? ` (${r.servings} μερίδες)` : ""}:</b> ${r.ings.map(i => `${esc(i.q || "")} ${esc(i.name)}`.trim()).join(" · ")}</div>` : ""}
       ${notes.map(n => `<p>${esc(n)}</p>`).join("")}${steps.length ? `<ol>${steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}</div>`;
   });
@@ -3434,7 +3434,9 @@ function mountPages0(box, p, c){
     let el = null, body = null;
     const fresh = () => { el = mk(`${pageHead("Βιβλίο συνταγών", who)}<div class="rbook"></div>`); body = el.querySelector(".rbook"); };
     fresh();
+    const hid = new Set([...box.querySelectorAll(".dcard.noing li.rnote[data-rid]")].map(x => x.dataset.rid));
     blocks.forEach(b => {
+      const t = document.createElement("div"); t.innerHTML = b; const rb = t.firstElementChild; if(rb && !hid.has(rb.dataset.rid)) rb.querySelector(".rig")?.remove(); b = t.innerHTML;
       body.insertAdjacentHTML("beforeend", b);
       if(body.scrollHeight > body.clientHeight + 1 && body.children.length > 1){ body.lastElementChild.remove(); fresh(); body.insertAdjacentHTML("beforeend", b); }
     });
