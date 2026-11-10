@@ -593,6 +593,7 @@ ol.st li::before{counter-increment:s;content:counter(s);width:22px;height:22px;b
 .pknew{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 2px}.pknew span{font-size:12.5px;color:var(--mute)}
 .rb .rig{font-size:11px;line-height:1.45;margin:4px 0 5px;color:#3A3030}.rb .rig b{color:#B81D22}
 .shopc.tight{column-gap:14px}.shopc.tight .si{padding:1px 0;gap:4px}.shopc.tight h4{font-size:1.05em;margin-bottom:2px}.shopc.tight .cat{margin-bottom:6px}
+.cned{border:0;background:none;color:var(--mute,#888);cursor:pointer;font-size:.7em;padding:2px 6px;border-radius:6px;vertical-align:middle}.cned:hover{background:var(--chip,#f3eeee);color:inherit}
 .fbar{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:14px}
 .fchip{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:13.5px;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:6px 11px;cursor:pointer}
 .fchip svg,.tfl svg,.tfsel svg,.nbf svg{width:15px;height:15px;stroke:currentColor}.fchip small{color:var(--mute);font-weight:500}
@@ -1446,6 +1447,15 @@ function showClient(id){
 }
 function backToList(){ openClient = null; $("#cliPage").hidden = true; $("#cliList").hidden = false; renderClients(); }
 
+document.addEventListener("click", async e => {
+  if(e.target.closest("#cnEd")){ const c = clients.find(x => x.id === openClient); if(!c) return;
+    $("#cnH").innerHTML = `<input id="cnIn" value="${esc(c.name)}" maxlength="80" style="font:inherit;padding:2px 8px;border:1px solid var(--line,#ddd);border-radius:8px;width:min(340px,70vw)"> <button class="btn sm" type="button" id="cnOk">Αποθήκευση</button> <button class="btn sm ghost" type="button" id="cnNo">Άκυρο</button>`; $("#cnIn").focus(); $("#cnIn").select(); return; }
+  if(e.target.closest("#cnNo")) return renderClientPage();
+  if(e.target.closest("#cnOk")){ const c = clients.find(x => x.id === openClient), v = $("#cnIn").value.trim(); if(!c || !v) return;
+    const { id, ...data } = c; data.name = v; e.target.disabled = true;
+    try{ await db.collection("clients").doc(id).set(data); c.name = v; renderClientPage(); }catch(_){ e.target.disabled = false; } }
+});
+document.addEventListener("keydown", e => { if(e.target.id === "cnIn"){ if(e.key === "Enter") $("#cnOk")?.click(); if(e.key === "Escape") $("#cnNo")?.click(); } });
 function renderClientPage(){
   const c = clients.find(x => x.id === openClient);
   if(!c){ backToList(); return; }
@@ -1454,7 +1464,7 @@ function renderClientPage(){
   const recIds = ps[0] ? (isBuilt(ps[0]) ? builtRecipes(ps[0]) : ps[0].recipes || []) : [];
   const recs = recIds.map(id => all.find(r => r.id === id)).filter(Boolean);
   $("#cliPage").innerHTML = `<button class="back" type="button">← Όλοι οι πελάτες</button>
-    <div class="chead"><div><h2>${esc(c.name)}</h2>${goal?`<div class="g">Στόχος: ${esc(goal)}</div>`:""}</div>
+    <div class="chead"><div><h2 id="cnH">${esc(c.name)}${db ? ` <button class="cned" type="button" id="cnEd" title="Αλλαγή ονόματος" aria-label="Αλλαγή ονόματος">✎</button>` : ""}</h2>${goal?`<div class="g">Στόχος: ${esc(goal)}</div>`:""}</div>
       ${db?`<div class="actions"><button class="btn" id="newBuilt" type="button">+ Νέο πλάνο (συνταγές ή τρόφιμα)</button>${assets?`<button class="btn ghost" id="addPlan" type="button">+ Προσθήκη πλάνου (PDF)</button>`:""}</div>`:""}</div>
     ${db && tpls.length ? `<div class="nbc" id="nbc" hidden><span class="dl">Ξεκίνα από:</span><button class="btn sm ghost" type="button" data-tpl="">Κενό πλάνο</button>${(() => { const F = [...new Set(tpls.map(t => (t.folder || "").trim()))].sort((a, b) => !a ? 1 : !b ? -1 : a.localeCompare(b, "el")); return F.map(f => `${F.length > 1 || f ? `<span class="nbf">${f ? ic("folder") + esc(f) : "Χωρίς φάκελο"}:</span>` : ""}${tpls.filter(t => (t.folder || "").trim() === f).map(t => `<span class="tplc"><button class="btn sm" type="button" data-tpl="${esc(t.id)}">${esc(t.name)}</button><button class="tdel" type="button" data-tdel="${esc(t.id)}" aria-label="Διαγραφή προτύπου ${esc(t.name)}">✕</button></span>`).join("")}`).join(""); })()}</div>` : ""}
     <div class="msg" id="cmsg" role="status" style="margin-top:8px"></div>
