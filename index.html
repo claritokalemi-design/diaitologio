@@ -693,7 +693,7 @@ ol.st li::before{counter-increment:s;content:counter(s);width:22px;height:22px;b
 .rb p{grid-column:1/-1;margin:0;font-size:12px;font-style:italic;color:#6F6565}
 .shopc{flex:1;column-count:4;column-gap:22px;min-height:0;font-size:12.5px}
 .shopc h4{margin:0 0 5px;color:#E3262B;font-size:13.5px;break-after:avoid}
-.shopc .cat{break-inside:avoid-column;margin-bottom:12px}
+.shopc .cat{margin-bottom:12px}.shopc .cat.sm{break-inside:avoid-column}
 .shopc .si{display:grid;grid-template-columns:14px 1fr auto;gap:6px;align-items:center;padding:3px 0;border-bottom:1px dotted #ECE4E4;break-inside:avoid}
 .shopc .si i{width:11px;height:11px;border:1.3px solid #9B9090;border-radius:2px}
 .shopc .si b{font-variant-numeric:tabular-nums}
@@ -3270,6 +3270,13 @@ function shopList(p){
       cats[ci].items.set(key, cur);
     });
   }));
+  /* same food in different units (e.g. 120 g + 0,5 τεμ.) → one row */
+  for(const c of cats){ const mm = new Map();
+    for(const it of c.items.values()){
+      const q = `${it.v ? `${fmtN(Math.round(it.v * 10) / 10)} ${it.unit}`.trim() : ""}${it.raw.length ? (it.v ? " + " : "") + it.raw.join(" + ") : ""}`, k = norm(it.nm).trim();
+      const cur = mm.get(k); if(cur){ if(q) cur.qs.push(q); } else mm.set(k, { nm: it.nm, qs: q ? [q] : [] });
+    }
+    c.items = mm; }
   return { cats: cats.filter(c => c.items.size), spices: [...spices], free: [...free] };
 }
 function pageHead(title, sub){
@@ -3331,7 +3338,7 @@ function builtPages(p, c){
   });
   const shop = shopList(p);
   const shopHTML = `${pageHead("Λίστα για ψώνια", `Εβδομάδα ${esc(weekLabel(p.start))}<br>${who}`)}
-    <div class="shopc">${shop.cats.map(cat => `<div class="cat"><h4>${esc(cat.n)}</h4>${[...cat.items.values()].map(it => `<div class="si"><i></i><span>${esc(it.nm)}</span><b>${QUAL ? "" : `${it.v ? esc(`${fmtN(it.v)} ${it.unit}`.trim()) : ""}${it.raw.length ? esc((it.v ? " + " : "") + it.raw.join(" + ")) : ""}`}</b></div>`).join("")}</div>`).join("")}
+    <div class="shopc">${shop.cats.map(cat => `<div class="cat${cat.items.size <= 12 ? " sm" : ""}"><h4>${esc(cat.n)}</h4>${[...cat.items.values()].map(it => `<div class="si"><i></i><span>${esc(it.nm)}</span><b>${QUAL ? "" : esc(it.qs.join(" + "))}</b></div>`).join("")}</div>`).join("")}
       ${shop.spices.length ? `<div class="cat"><h4>Μπαχαρικά &amp; αρτύματα</h4><div class="sp">${shop.spices.map(esc).join(" · ")}</div></div>` : ""}
       ${shop.free.length ? `<div class="cat"><h4>Επιπλέον</h4>${shop.free.map(([t, n]) => `<div class="si"><i></i><span>${esc(t)}</span><b>${n > 1 ? `×${n}` : ""}</b></div>`).join("")}</div>` : ""}</div>
     ${legendHTML(p)}`;
@@ -3430,9 +3437,28 @@ function mountPages0(box, p, c){
       if(body.scrollHeight > body.clientHeight + 1 && body.children.length > 1){ body.lastElementChild.remove(); fresh(); body.insertAdjacentHTML("beforeend", b); }
     });
   }
-  mk(shopHTML);
+  fitShop(mk(shopHTML), mk);
   els.forEach((el, i) => el.insertAdjacentHTML("beforeend", `<div class="pn">${i + 1}</div>`));
   return els;
+}
+/* shopping list never spills sideways: shrink the text, then continue on another page */
+function fitShop(el, mk){
+  const sc = el.querySelector(".shopc"); if(!sc) return;
+  const over = x => x.scrollWidth > x.clientWidth + 2 || x.scrollHeight > x.clientHeight + 2;
+  let fs = 12.5; while(over(sc) && fs > 9.5){ fs -= .5; sc.style.fontSize = fs + "px"; }
+  if(!over(sc)) return;
+  const head = el.querySelector(".ph")?.outerHTML || "";
+  let cur = sc, guard = 0;
+  while(over(cur) && guard++ < 6){
+    const nx = mk(`${head}<div class="shopc" style="font-size:${fs}px"></div>`), ns = nx.querySelector(".shopc");
+    nx.querySelector(".ph .rt h2")?.insertAdjacentHTML("beforeend", " <small>(συνέχεια)</small>");
+    while(over(cur) && cur.children.length > 1) ns.prepend(cur.lastElementChild);
+    if(over(cur) && cur.children.length === 1){ /* one huge category: split its rows */
+      const cat = cur.firstElementChild, rows = [...cat.querySelectorAll(".si")], nc = document.createElement("div"); nc.className = "cat"; nc.innerHTML = cat.querySelector("h4").outerHTML;
+      ns.prepend(nc); while(over(cur) && cat.querySelectorAll(".si").length > 1) nc.insertBefore(cat.querySelector(".si:last-of-type"), nc.children[1] || null);
+    }
+    cur = ns;
+  }
 }
 function waitImgs(root){ return Promise.all([...root.querySelectorAll("img")].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))); }
 
