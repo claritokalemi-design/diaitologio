@@ -2852,7 +2852,7 @@ $("#tplList").addEventListener("click", async e => {
 /* ---------- backup / restore ---------- */
 const BKC = ["recipes","clients","plans","templates","foods","meals"];
 function bkShow(){ $("#bk").hidden = !db; }
-async function readAll(name){ return await new Promise((ok, no) => { let un = null; un = db.collection(name).onSnapshot(snap => { ok(snap.docs.map(d => ({ id: d.id, ...d.data() }))); try{ un && un(); }catch(_){} }, no); }); }
+async function readAll(name){ try{ const sn = await db.collection(name).get(); return sn.docs.map(d => ({ id: d.id, ...d.data() })); }catch(_){} return await new Promise((ok, no) => { let un = null; un = db.collection(name).onSnapshot(snap => { ok(snap.docs.map(d => ({ id: d.id, ...d.data() }))); try{ un && un(); }catch(_){} }, no); }); }
 $("#bkDl").addEventListener("click", async e => {
   const b = e.target; if(!db) return; b.disabled = true; $("#bkMsg").textContent = "Ετοιμάζεται…";
   try{
@@ -2887,7 +2887,7 @@ $("#bkFull").addEventListener("click", async e => {
   }catch(err){ $("#bkMsg").textContent = err?.code === "cancelled" ? "" : "Δεν ήταν δυνατή η λήψη. Δοκίμασε ξανά."; }
   finally{ b.disabled = false; }
 });
-let bkPending = null;
+let bkPending = null, bkSkipped = 0;
 $("#bkUp").addEventListener("click", async e => {
   const b = e.target;
   if(bkPending){
@@ -2895,8 +2895,13 @@ $("#bkUp").addEventListener("click", async e => {
     try{
       const A = bkPending.assets || {}, aids = Object.keys(A); let na = 0;
       if(aids.length && assets?.putWithId) for(const id of aids){ const bin = Uint8Array.from(atob(A[id].data), ch => ch.charCodeAt(0)); await assets.putWithId(id, new Blob([bin], { type: A[id].type })); na++; $("#bkMsg").textContent = `Αρχεία… ${na}/${aids.length}`; }
-      for(const c of BKC.concat("meta")) for(const d of bkPending.collections[c] || []){ const { id, ...data } = d; if(!id) continue; await (c === "meta" ? rawDb : db).collection(c).doc(id).set(data); n++; if(n % 20 === 0) $("#bkMsg").textContent = `Επαναφορά… ${n}`; }
-      $("#bkMsg").textContent = `Η επαναφορά ολοκληρώθηκε: ${n} εγγραφές.`;
+      let sk = 0;
+      for(const c of BKC.concat("meta")) for(const d of bkPending.collections[c] || []){ const { id, ...data } = d; if(!id) continue;
+        const H = c === "meta" ? rawDb : db; let cur = null; try{ const g = await H.collection(c).doc(id).get(); cur = g.exists ? g.data() : null; }catch(_){}
+        if(cur && String(cur.updatedAt || cur.createdAt || "") >= String(data.updatedAt || data.createdAt || "")){ sk++; continue; }
+        await H.collection(c).doc(id).set(data); n++; if(n % 20 === 0) $("#bkMsg").textContent = `Επαναφορά… ${n}`; }
+      bkSkipped = sk;
+      $("#bkMsg").textContent = `Η επαναφορά ολοκληρώθηκε: ${n} εγγραφές προστέθηκαν ή ενημερώθηκαν${bkSkipped ? `, ${bkSkipped} ήταν ήδη ίδιες ή νεότερες εδώ και δεν άλλαξαν` : ""}.`;
     }catch(err){ $("#bkMsg").textContent = `Η επαναφορά σταμάτησε μετά από ${n} εγγραφές. Δοκίμασε ξανά.`; }
     finally{ bkPending = null; b.disabled = false; b.classList.remove("arm"); b.textContent = "Επαναφορά από αρχείο"; }
     return;
