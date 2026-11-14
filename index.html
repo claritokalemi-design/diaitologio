@@ -2727,6 +2727,16 @@ function tplSummary(t){
   o.push(n ? `${n} ${n === 1 ? "επιλογή" : "επιλογές"} στην εβδομάδα` : "κενό");
   return o.join(" · ");
 }
+document.addEventListener("click", async e => {
+  const ed1 = e.target.closest("[data-tne]"); if(ed1){ const t = tpls.find(x => x.id === ed1.dataset.tne); if(!t) return; const h = ed1.closest("h3");
+    h.innerHTML = `<input class="tnIn" value="${esc(t.name)}" maxlength="100" style="font:inherit;font-size:.9em;padding:2px 8px;border:1px solid var(--line,#ddd);border-radius:8px;width:100%;box-sizing:border-box"><span style="display:flex;gap:6px;margin-top:6px"><button class="btn sm" type="button" data-tnok="${esc(t.id)}">Αποθήκευση</button><button class="btn sm ghost" type="button" data-tnno>Άκυρο</button></span>`;
+    const i = h.querySelector("input"); i.focus(); i.select(); return; }
+  if(e.target.closest("[data-tnno]")) return renderTplTab();
+  const ok = e.target.closest("[data-tnok]"); if(ok){ const t = tpls.find(x => x.id === ok.dataset.tnok), v = ok.closest("h3").querySelector("input").value.trim(); if(!t || !v) return;
+    const { id, ...data } = t; data.name = v; ok.disabled = true;
+    try{ await db.collection("templates").doc(id).set(data); t.name = v; renderTplTab(); }catch(_){ ok.disabled = false; } }
+});
+document.addEventListener("keydown", e => { if(e.target.classList?.contains("tnIn")){ const h = e.target.closest("h3"); if(e.key === "Enter") h.querySelector("[data-tnok]")?.click(); if(e.key === "Escape") h.querySelector("[data-tnno]")?.click(); } });
 function renderTplTab(){
   $("#kTpl").textContent = tpls.length || "";
   if($("#vTpl").hidden) return;
@@ -2743,7 +2753,7 @@ function renderTplTab(){
   if(!shown.length && tplF !== "Όλα" && !tplTag.length){ $("#tplList").innerHTML = `<div class="state" style="grid-column:1/-1"><b>Ο φάκελος «${esc(tplF)}» είναι άδειος</b>Βάλε πρότυπα εδώ από το μενού ${ic("folder")} «φάκελος» σε κάθε πρότυπο, ή φτιάξε νέο πρότυπο ενώ είσαι σε αυτόν τον φάκελο.</div>`; return; }
   if(!shown.length){ $("#tplList").innerHTML = `<div class="state" style="grid-column:1/-1"><b>Κανένα πρότυπο με αυτές τις ετικέτες</b>Πάτα «Καθαρισμός».</div>`; return; }
   $("#tplList").innerHTML = shown.map(t => `<article class="tpl" data-id="${esc(t.id)}">
-    <div class="tph"><div>${tplF === "Όλα" && (t.folder || "").trim() ? `<div class="tfl">${ic("folder")}${esc(t.folder)}</div>` : ""}<h3>${esc(t.name)}</h3>${t.goal ? `<div class="pg">Στόχος: ${esc(t.goal)}</div>` : ""}<div class="meta">${esc(tplSummary(t))}</div>${pillsHTML(t)}</div></div>
+    <div class="tph"><div>${tplF === "Όλα" && (t.folder || "").trim() ? `<div class="tfl">${ic("folder")}${esc(t.folder)}</div>` : ""}<h3 data-tnh="${esc(t.id)}">${esc(t.name)} <button class="cned" type="button" data-tne="${esc(t.id)}" title="Αλλαγή ονόματος" aria-label="Αλλαγή ονόματος">✎</button></h3>${t.goal ? `<div class="pg">Στόχος: ${esc(t.goal)}</div>` : ""}<div class="meta">${esc(tplSummary(t))}</div>${pillsHTML(t)}</div></div>
     <div class="actions">
       <button class="btn sm" type="button" data-ta="edit">${ic("edit")}Επεξεργασία</button>
       <span class="asep"></span>
