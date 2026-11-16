@@ -595,6 +595,10 @@ ol.st li::before{counter-increment:s;content:counter(s);width:22px;height:22px;b
 .shopc.tight{column-gap:14px}.shopc.tight .si{padding:1px 0;gap:4px}.shopc.tight h4{font-size:1.05em;margin-bottom:2px}.shopc.tight .cat{margin-bottom:6px}
 .cned{border:0;background:none;color:var(--mute,#888);cursor:pointer;font-size:.7em;padding:2px 6px;border-radius:6px;vertical-align:middle}.cned:hover{background:var(--chip,#f3eeee);color:inherit}
 .mclr{border:1px solid var(--line,#e5d9d6);background:#fff;color:var(--mute,#777);font-size:11.5px;border-radius:999px;padding:2px 9px;cursor:pointer;margin-right:4px}.mclr:hover{color:#B81D22;border-color:#E3262B}.mclr.arm{background:#E3262B;color:#fff;border-color:#E3262B}
+.prt .ovg .mh{background:#fff!important;color:#C8102E!important;border:2px solid #E3262B;box-sizing:border-box}.prt .ovg .mh *{color:#C8102E!important}
+.prt .oc.nr{background:#fff!important}.prt .oc .oh{background:#fff!important;border-bottom:1.5px solid #E3262B}
+.prt .dcard .chd{background:#fff!important;color:#C8102E!important;border-bottom:2px solid #E3262B}.prt .dcard .chd *{color:#C8102E!important}.prt .dcard .chd > i{border-color:#E3262B!important;background:#fff!important}
+.prt .cb .nb{background:#fff!important;border:1px solid #DDD3D3}.prt .chips2 span{background:#fff!important;border:1px solid #DDD3D3}
 .fbar{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:14px}
 .fchip{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:13.5px;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:6px 11px;cursor:pointer}
 .fchip svg,.tfl svg,.tfsel svg,.nbf svg{width:15px;height:15px;stroke:currentColor}.fchip small{color:var(--mute);font-weight:500}
@@ -898,6 +902,7 @@ ol.st li::before{counter-increment:s;content:counter(s);width:22px;height:22px;b
       <div class="prow" style="margin-top:10px">
         <label class="tgl"><input type="checkbox" id="eMac"> Θερμίδες &amp; μακρο στο PDF</label>
         <label class="tgl" title="Σε κάθε γεύμα: κορεσμός, γεύση, συνθήκες — και ημερολόγιο κίνησης σε κάθε μέρα"><input type="checkbox" id="eDia"> Ημερολόγιο καταγραφής (κορεσμός, γεύση, συνθήκες, κίνηση)</label>
+        <label class="tgl" title="Χωρίς γεμάτα κόκκινα/γκρι φόντα: λιγότερο μελάνι, καθαρό αποτέλεσμα σε εκτυπωτή"><input type="checkbox" id="ePrt"> Χρώματα για εκτύπωση (λιγότερο μελάνι)</label>
         <label class="tgl"><input type="checkbox" id="eQual"> Ποιοτικό (χωρίς ποσότητες)</label>
       </div>
       <div class="phint">Η απλή οπτική μορφή και το ποιοτικό πλάνο δεν δείχνουν θερμίδες στο PDF.</div>
@@ -1493,8 +1498,8 @@ function planCard(p, i){
       ${db && b && tplOpen.has(p.id) ? `<form class="tplf" data-tplf="${esc(p.id)}"><input name="tn" maxlength="80" placeholder="Όνομα προτύπου, π.χ. 1600 kcal Low FODMAP" aria-label="Όνομα προτύπου"><button class="btn sm" type="submit">Αποθήκευση</button><button class="tdel" type="button" data-act="tpl" aria-label="Άκυρο">✕</button><div class="phint">Κρατάει γεύματα, μέρες, ρυθμίσεις, στόχους, περιορισμούς και ετικέτες — χωρίς πελάτη και ημερομηνίες.</div></form>` : ""}${tplMsgP[p.id] ? `<div class="phint" style="color:var(--red-ink);font-weight:600">${esc(tplMsgP[p.id])}</div>` : ""}</div></article>`;
 }
 async function saveAsTemplate(src, name){
-  const { meals, days, diet, targets, layout, showMacros, safe, tags, qual, diary, goal } = JSON.parse(JSON.stringify(src));
-  return db.collection("templates").add({ name, meals: meals || MEALS, days, diet: diet || null, targets: targets || null, layout: layout || "full", showMacros: showMacros !== false, safe: safe || "", tags: tags || [], qual: !!qual, diary: !!diary, goal: goal || "", createdAt: new Date().toISOString() });
+  const { meals, days, diet, targets, layout, showMacros, safe, tags, qual, diary, print, goal } = JSON.parse(JSON.stringify(src));
+  return db.collection("templates").add({ name, meals: meals || MEALS, days, diet: diet || null, targets: targets || null, layout: layout || "full", showMacros: showMacros !== false, safe: safe || "", tags: tags || [], qual: !!qual, diary: !!diary, print: !!print, goal: goal || "", createdAt: new Date().toISOString() });
 }
 let tplOpen = new Set(), tplMsgP = {};
 function fmtDate(s){ const m = String(s||"").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}.${m[2]}.${m[1]}` : ""; }
@@ -1699,7 +1704,7 @@ const planData = p => { const { id, ...rest } = p; return rest; };
 async function newBuilt(cid, from, tpl){
   if(!db) return;
   let p;
-  if(tpl && tpl.days){ p = blankPlan(cid); const c = JSON.parse(JSON.stringify(tpl)); for(const k of ["meals","days","diet","targets","layout","showMacros","safe","tags","qual","diary"]) if(c[k] != null) p[k] = c[k]; if(!p.goal && c.goal) p.goal = c.goal; p.fromTemplate = tpl.name; }
+  if(tpl && tpl.days){ p = blankPlan(cid); const c = JSON.parse(JSON.stringify(tpl)); for(const k of ["meals","days","diet","targets","layout","showMacros","safe","tags","qual","diary","print"]) if(c[k] != null) p[k] = c[k]; if(!p.goal && c.goal) p.goal = c.goal; p.fromTemplate = tpl.name; }
   else if(from){ p = JSON.parse(JSON.stringify(planData(from))); p.start = addDays(from.start, 7); p.week = weekLabel(p.start); p.addedAt = new Date().toISOString().slice(0,10); }
   else p = blankPlan(cid);
   p.updatedAt = new Date().toISOString();
@@ -1717,7 +1722,7 @@ function openEditor(p, coll){
   if(!ed.days) ed.days = DAYN.map(() => ({ items: Object.fromEntries((ed.meals || MEALS).map(m => [m, []])) }));
   const c = clients.find(x => x.id === ed.client);
   $("#eTitle").textContent = edColl === "templates" ? `Πρότυπο: ${ed.name || ""}` : `Πλάνο για ${c?.name || ""}`;
-  $("#eStart").value = ed.start; $("#eGoal").value = ed.goal || ""; $("#eLay").value = ed.layout || "full"; $("#eQual").checked = !!ed.qual; $("#eMac").checked = ed.showMacros !== false; $("#eDia").checked = !!ed.diary;
+  $("#eStart").value = ed.start; $("#eGoal").value = ed.goal || ""; $("#eLay").value = ed.layout || "full"; $("#eQual").checked = !!ed.qual; $("#ePrt").checked = !!ed.print; $("#eMac").checked = ed.showMacros !== false; $("#eDia").checked = !!ed.diary;
   $("#eSave").textContent = "Οι αλλαγές αποθηκεύονται αυτόματα";
   $("#eSafe").value = ed.safe || ""; closePanel(); mHide = new Set(ed.meals || MEALS); mEdit = null; cState = new Map();
   $("#editor").hidden = false; document.body.style.overflow = "hidden";
@@ -2087,6 +2092,7 @@ $("#eStart").addEventListener("change", e => { if(e.target.value){ ed.start = e.
 $("#eGoal").addEventListener("input", e => { ed.goal = e.target.value; touch(); });
 $("#eMac").addEventListener("change", e => { ed.showMacros = e.target.checked; touch(); renderPanel(); });
 $("#eDia").addEventListener("change", e => { ed.diary = e.target.checked; touch(); renderPanel(); });
+$("#ePrt").addEventListener("change", e => { ed.print = e.target.checked; touch(); renderPanel(); });
 $("#eQual").addEventListener("change", e => { ed.qual = e.target.checked; touch(); renderPanel(); });
 $("#eLay").addEventListener("change", e => { ed.layout = e.target.value; touch(); renderPanel(); });
 $("#eDone").addEventListener("click", closeEditor);
@@ -3425,7 +3431,7 @@ function mountPages0(box, p, c){
   const simple = p.layout === "simple"; if(simple || p.qual) p = { ...p, showMacros: false };
   const { pages, blocks, shopHTML, who } = builtPages(p, c);
   const els = [];
-  const mk = html => { const el = document.createElement("div"); el.className = "ppage" + (simple ? " simple" : "") + (p.qual ? " qual" : ""); el.innerHTML = html; box.appendChild(el); els.push(el); return el; };
+  const mk = html => { const el = document.createElement("div"); el.className = "ppage" + (simple ? " simple" : "") + (p.qual ? " qual" : "") + (p.print ? " prt" : ""); el.innerHTML = html; box.appendChild(el); els.push(el); return el; };
   if(p.layout === "one" || p.layout === "one+rec"){
     let el = mk(onePageHTML(p, c, true)), fs = 11.5;
     const fits = () => el.scrollHeight <= el.clientHeight + 1;
