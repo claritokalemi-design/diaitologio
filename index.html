@@ -1349,7 +1349,7 @@ function open(id){
   const s = $("#sheet");
   s.innerHTML = `<div class="hero"><img alt="" src="${esc(current.photo)}"><button class="x" type="button" aria-label="Κλείσιμο">✕</button></div>
     <div class="in">${bodyHTML(current, true)}
-    <div class="actions">${current.nut?.kcal ? `<button class="btn ghost" id="rcSim" type="button">≈ Παρόμοιες συνταγές</button>` : ""}<button class="btn ghost" id="rcNv" type="button">${ic("info")}Μακρο & μικροθρεπτικά</button>${downloads?`<button class="btn" id="dlOne" type="button">${ic("dl")}Λήψη συνταγής σε PDF</button>`:""}${db ? `<button class="btn ghost" id="rcEdit" type="button">${ic("edit")}Επεξεργασία υλικών & εκτέλεσης</button>` : ""}${db && current.source === "Κλαρίτα" ? `<button class="danger" id="rcDel" type="button">${ic("del")}Διαγραφή</button>` : ""}</div><div class="msg" id="msg"></div></div>`;
+    <div class="actions">${current.nut?.kcal ? `<button class="btn ghost" id="rcSim" type="button">≈ Παρόμοιες συνταγές</button>` : ""}<button class="btn ghost" id="rcNv" type="button">${ic("info")}Μακρο & μικροθρεπτικά</button>${downloads?`<button class="btn" id="dlOne" type="button">${ic("dl")}Λήψη συνταγής σε PDF</button>`:""}${db ? `<button class="btn ghost" id="rcEdit" type="button">${ic("edit")}Επεξεργασία υλικών & εκτέλεσης</button>${db ? `<button class="btn ghost" id="rcCopy" type="button" title="Νέα συνταγή με τα ίδια υλικά, εκτέλεση και φωτογραφία — η αρχική δεν αλλάζει">⧉ Αντίγραφο</button>` : ""}` : ""}${db && current.source === "Κλαρίτα" ? `<button class="danger" id="rcDel" type="button">${ic("del")}Διαγραφή</button>` : ""}</div><div class="msg" id="msg"></div></div>`;
   s.hidden = false; $("#shade").hidden = false; s.scrollTop = 0; s.querySelector(".x").focus();
 }
 function close(){ $("#sheet").hidden = true; $("#shade").hidden = true; current = null; lastFocus?.focus?.(); }
@@ -1360,10 +1360,11 @@ $("#sheet").addEventListener("click", async e => {
   if(e.target.closest("#rcSim") && current){ recSim = current.id; close(); render(); window.scrollTo({ top: 0 }); return; }
   if(e.target.closest("#rcNv") && current){ openNv({ r: current.id, x: 1 }); return; }
   if(e.target.id === "rcEdit" && current){ const r = current; close(); openRc(r); }
+  if(e.target.closest("#rcCopy") && current){ const r = current; close(); openRc(r, true); }
   if(e.target.id === "rcDel" && current){
     const b = e.target; if(!b.classList.contains("arm")){ b.classList.add("arm"); b.textContent = "Σίγουρα; Πάτα ξανά"; return; }
     b.disabled = true; const r = current;
-    try{ await db.collection("recipes").doc(r.id).delete(); if(assets && r.photoId) try{ await assets.delete(r.photoId); }catch(_){} close(); }
+    try{ await db.collection("recipes").doc(r.id).delete(); if(assets && r.photoId && !all.some(x => x.id !== r.id && (x.photo || "").includes(r.photoId))) try{ await assets.delete(r.photoId); }catch(_){} close(); }
     catch(err){ b.disabled = false; $("#msg").textContent = "Δεν διαγράφηκε. Δοκίμασε ξανά."; }
   }
 });
@@ -2589,13 +2590,14 @@ function swapClick(e){
 /* ---------- own recipe creator ---------- */
 let rc = null;
 const DIFFS = ["Εύκολη","Μέτρια","Δύσκολη"];
-function openRc(r){
+function openRc(r, copy){
   rc = r ? { id: r.id, title: r.title, meals: [...(r.meals || [])], min: r.min || "", diff: r.diff || "Εύκολη", servings: r.servings || 1, mealprep: !!r.mealprep,
       rows: JSON.parse(JSON.stringify(r.fi || (r.ings || []).map(i => ({ q: i.q, name: i.name })))), steps: (r.steps || []).map(x => x.replace(/^\d+\.\s*/, "")).join("\n"),
       photo: r.photo || "", photoId: r.photoId || "", keep: { tags: r.tags || [], tagsOff: r.tagsOff || [], addedAt: r.addedAt, orig: JSON.parse(JSON.stringify(r)) } }
     : { title: "", meals: [], min: "", diff: "Εύκολη", servings: 1, mealprep: false, rows: [], steps: "", photo: "", photoId: "" };
+  if(r && copy){ delete rc.id; rc.title = `${r.title} (αντίγραφο)`; rc.photoId = ""; rc.keep.addedAt = null; }
   rc.q = ""; rc.newPhoto = null; rc.preview = rc.photo;
-  $("#rcT").textContent = r ? "Επεξεργασία συνταγής" : "Νέα συνταγή";
+  $("#rcT").textContent = r && copy ? "Αντίγραφο συνταγής" : r ? "Επεξεργασία συνταγής" : "Νέα συνταγή";
   $("#rc").hidden = false; document.body.style.overflow = "hidden"; renderRc(); $("#rcB [data-k=title]")?.focus();
 }
 function closeRc(){ $("#rc").hidden = true; document.body.style.overflow = $("#picker").hidden ? "" : "hidden"; rc = null; if(pkBack?.kind === "rec") setTimeout(() => { if(pkBack?.kind === "rec" && !rc) pkBack = null; }, 0); }
