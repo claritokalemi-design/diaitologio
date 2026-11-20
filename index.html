@@ -591,7 +591,7 @@ ol.st li::before{counter-increment:s;content:counter(s);width:22px;height:22px;b
 #eMeals .btn.on{background:#FCEBEA;border-color:#E3262B;color:var(--red-ink)}
 .smn{display:block;color:#B81D22;margin:0 0 2px;line-height:1.2}
 .pknew{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 2px}.pknew span{font-size:12.5px;color:var(--mute)}
-.rb .rig{font-size:11px;line-height:1.45;margin:4px 0 5px;color:#3A3030}.rb .rig b{color:#B81D22}
+.rb .rig{grid-column:1/-1;font-size:11px;line-height:1.45;margin:4px 0 5px;color:#3A3030}.rb .rig b{color:#B81D22}
 .shopc.tight{column-gap:14px}.shopc.tight .si{padding:1px 0;gap:4px}.shopc.tight h4{font-size:1.05em;margin-bottom:2px}.shopc.tight .cat{margin-bottom:6px}
 .cned{border:0;background:none;color:var(--mute,#888);cursor:pointer;font-size:.7em;padding:2px 6px;border-radius:6px;vertical-align:middle}.cned:hover{background:var(--chip,#f3eeee);color:inherit}
 .mclr{border:1px solid var(--line,#e5d9d6);background:#fff;color:var(--mute,#777);font-size:11.5px;border-radius:999px;padding:2px 9px;cursor:pointer;margin-right:4px}.mclr:hover{color:#B81D22;border-color:#E3262B}.mclr.arm{background:#E3262B;color:#fff;border-color:#E3262B}
@@ -3382,6 +3382,7 @@ function builtPages(p, c){
     const notes = [], steps = [];
     (r.steps || []).forEach(s => { const mm = s.match(/^\d+\.\s*(.*)$/); mm ? steps.push(mm[1]) : notes.push(s); });
     return `<div class="rb" data-rid="${esc(r.id)}"><img alt="" src="${esc(r.photo)}"><div><div class="rt2"><b>${i + 1}.</b> ${esc(r.title)}</div><div class="ru">${r.min ? `⏱ ${r.min}′ · ${esc(r.diff || "")} · ` : ""}${[...new Set(used)].join(", ")}</div></div>
+      ${(r.ings || []).length ? `<div class="rig"><b>Υλικά${(r.servings || 1) > 1 ? ` (${r.servings} μερίδες)` : ""}:</b> ${r.ings.map(i => `${esc(i.q || "")} ${esc(i.name)}`.trim()).join(" · ")}</div>` : ""}
       ${notes.map(n => `<p>${esc(n)}</p>`).join("")}${steps.length ? `<ol>${steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}</div>`;
   });
   const shop = shopList(p);
@@ -3482,6 +3483,7 @@ function mountPages0(box, p, c){
     fresh();
     const hid = new Set([...box.querySelectorAll(".dcard.noing li.rnote[data-rid]")].map(x => x.dataset.rid));
     blocks.forEach(b => {
+      { const t = document.createElement("div"); t.innerHTML = b; const rb = t.firstElementChild; if(rb && !hid.has(rb.dataset.rid)) rb.querySelector(".rig")?.remove(); b = t.innerHTML; }
       body.insertAdjacentHTML("beforeend", b);
       if(body.scrollHeight > body.clientHeight + 1 && body.children.length > 1){ body.lastElementChild.remove(); fresh(); body.insertAdjacentHTML("beforeend", b); }
     });
